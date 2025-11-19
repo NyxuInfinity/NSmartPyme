@@ -1,0 +1,290 @@
+import { useState, useEffect } from 'react';
+import productoService from '../../services/productoService';
+
+interface Producto {
+  id_producto?: number;
+  id_categoria: number;
+  nombre: string;
+  descripcion?: string;
+  precio: number | string;
+  cantidad_stock: number | string;
+  sku: string;
+  activo?: boolean;
+}
+
+interface Categoria {
+  id_categoria: number;
+  nombre: string;
+}
+
+interface ModalProductoProps {
+  producto: Producto | null;
+  onClose: () => void;
+  onGuardar: () => void;
+}
+
+const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => {
+  const [formData, setFormData] = useState<Producto>(
+    producto || {
+      id_categoria: 0,
+      nombre: '',
+      descripcion: '',
+      precio: 0,
+      cantidad_stock: 0,
+      sku: '',
+      activo: true,
+    }
+  );
+
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    cargarCategorias();
+  }, []);
+
+  const cargarCategorias = async () => {
+    try {
+      const data = await productoService.getCategorias();
+      setCategorias(data);
+      // Si no hay categoría seleccionada, selecciona la primera
+      if (formData.id_categoria === 0 && data.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          id_categoria: data[0].id_categoria,
+        }));
+      }
+    } catch (err) {
+      console.error('Error al cargar categorías:', err);
+    }
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    const inputElement = e.target as any;
+
+    let finalValue: any = value;
+
+    if (type === 'checkbox') {
+      finalValue = inputElement.checked;
+    } else if (type === 'number') {
+      finalValue = value === '' ? 0 : parseFloat(value);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: finalValue,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validaciones
+    if (!formData.nombre.trim()) {
+      setError('El nombre es requerido');
+      return;
+    }
+    if (!formData.sku.trim()) {
+      setError('El SKU es requerido');
+      return;
+    }
+    if (formData.id_categoria === 0) {
+      setError('Debes seleccionar una categoría');
+      return;
+    }
+    if (parseFloat(formData.precio.toString()) <= 0) {
+      setError('El precio debe ser mayor a 0');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const dataToSend = {
+        id_categoria: formData.id_categoria,
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion?.trim() || '',
+        precio: parseFloat(formData.precio.toString()),
+        cantidad_stock: parseInt(formData.cantidad_stock.toString()),
+        sku: formData.sku.trim(),
+      };
+
+      if (producto?.id_producto) {
+        // Actualizar
+        await productoService.update(producto.id_producto, dataToSend);
+      } else {
+        // Crear
+        await productoService.create(dataToSend);
+      }
+      onGuardar();
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar producto');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-xl font-bold text-gray-900">
+            {producto?.id_producto ? 'Editar Producto' : 'Nuevo Producto'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            type="button"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Contenido */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* SKU */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              SKU <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="sku"
+              value={formData.sku}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="ej: PROD-001"
+            />
+          </div>
+
+          {/* Nombre */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="nombre"
+              value={formData.nombre}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Nombre del producto"
+            />
+          </div>
+
+          {/* Categoría */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoría <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="id_categoria"
+              value={formData.id_categoria}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value={0}>Selecciona una categoría</option>
+              {categorias.map(cat => (
+                <option key={cat.id_categoria} value={cat.id_categoria}>
+                  {cat.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Descripción
+            </label>
+            <textarea
+              name="descripcion"
+              value={formData.descripcion || ''}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Descripción del producto"
+            />
+          </div>
+
+          {/* Precio */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Precio <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="precio"
+              value={formData.precio}
+              onChange={handleChange}
+              required
+              step="0.01"
+              min="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="0.00"
+            />
+          </div>
+
+          {/* Stock */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Cantidad en Stock <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="cantidad_stock"
+              value={formData.cantidad_stock}
+              onChange={handleChange}
+              required
+              min="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="0"
+            />
+          </div>
+
+          {/* Botones */}
+          <div className="flex space-x-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default ModalProducto;
