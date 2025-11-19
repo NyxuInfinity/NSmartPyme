@@ -11,6 +11,7 @@ class Producto {
         `SELECT 
                     p.id_producto,
                     p.id_categoria,
+                    p.sku,
                     p.nombre,
                     p.descripcion,
                     p.precio,
@@ -41,6 +42,7 @@ class Producto {
         `SELECT 
                     p.id_producto,
                     p.id_categoria,
+                    p.sku,
                     p.nombre,
                     p.descripcion,
                     p.precio,
@@ -70,6 +72,7 @@ class Producto {
         `SELECT 
                     p.id_producto,
                     p.id_categoria,
+                    p.sku,
                     p.nombre,
                     p.descripcion,
                     p.precio,
@@ -92,6 +95,35 @@ class Producto {
   }
 
   /**
+   * Buscar producto por SKU
+   */
+  static async findBySKU(sku) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT 
+                    p.id_producto,
+                    p.id_categoria,
+                    p.sku,
+                    p.nombre,
+                    p.descripcion,
+                    p.precio,
+                    p.stock,
+                    p.stock_minimo,
+                    p.imagen_url,
+                    p.activo,
+                    c.nombre as categoria_nombre
+                FROM productos p
+                INNER JOIN categorias c ON p.id_categoria = c.id_categoria
+                WHERE p.sku = ?`,
+        [sku]
+      );
+      return rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Buscar productos por nombre
    */
   static async searchByName(nombre) {
@@ -100,6 +132,7 @@ class Producto {
         `SELECT 
                     p.id_producto,
                     p.id_categoria,
+                    p.sku,
                     p.nombre,
                     p.descripcion,
                     p.precio,
@@ -120,12 +153,28 @@ class Producto {
   }
 
   /**
+   * Generar un SKU único automáticamente
+   */
+  static async generateSKU() {
+    try {
+      const [rows] = await pool.query(
+        `SELECT MAX(id_producto) as max_id FROM productos`
+      );
+      const nextId = (rows[0].max_id || 0) + 1;
+      return `PROD-${String(nextId).padStart(4, "0")}`;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Crear un nuevo producto
    */
   static async create(productoData) {
     try {
       const {
         id_categoria,
+        sku,
         nombre,
         descripcion,
         precio,
@@ -134,12 +183,16 @@ class Producto {
         imagen_url,
       } = productoData;
 
+      // Si no se proporciona SKU, generar uno automáticamente
+      const skuFinal = sku || (await this.generateSKU());
+
       const [result] = await pool.query(
         `INSERT INTO productos 
-                (id_categoria, nombre, descripcion, precio, stock, stock_minimo, imagen_url) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (id_categoria, sku, nombre, descripcion, precio, stock, stock_minimo, imagen_url) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_categoria,
+          skuFinal,
           nombre,
           descripcion || null,
           precio,
@@ -162,6 +215,7 @@ class Producto {
     try {
       const {
         id_categoria,
+        sku,
         nombre,
         descripcion,
         precio,
@@ -173,6 +227,7 @@ class Producto {
       const [result] = await pool.query(
         `UPDATE productos 
                 SET id_categoria = ?,
+                    sku = ?,
                     nombre = ?,
                     descripcion = ?,
                     precio = ?,
@@ -182,6 +237,7 @@ class Producto {
                 WHERE id_producto = ?`,
         [
           id_categoria,
+          sku,
           nombre,
           descripcion || null,
           precio,
@@ -246,6 +302,7 @@ class Producto {
       const [rows] = await pool.query(
         `SELECT 
                     p.id_producto,
+                    p.sku,
                     p.nombre,
                     p.stock,
                     p.stock_minimo,

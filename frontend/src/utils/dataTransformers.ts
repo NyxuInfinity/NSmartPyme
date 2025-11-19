@@ -1,5 +1,6 @@
 /**
  * Utilidades para normalizar datos entre frontend y backend
+ * ✅ Actualizado para usar 'stock' en lugar de 'cantidad_stock'
  */
 
 // Conversión segura string -> number
@@ -24,26 +25,29 @@ export const toInteger = (value: any, defaultValue: number = 0): number => {
 
 /**
  * Transforma datos de producto del frontend al formato del backend
+ * ✅ Ahora usa 'stock' en lugar de 'cantidad_stock'
  */
 export const transformProductoToBackend = (data: any) => {
   return {
     id_categoria: toInteger(data.id_categoria),
+    sku: data.sku ? String(data.sku).trim() : undefined,
     nombre: String(data.nombre || '').trim(),
     descripcion: data.descripcion ? String(data.descripcion).trim() : undefined,
     precio: toPrice(data.precio),
-    stock: toInteger(data.cantidad_stock || data.stock), // ✅ Mapeo correcto
-    sku: data.sku ? String(data.sku).trim() : undefined,
+    stock: toInteger(data.stock), // ✅ Usa 'stock' directamente
+    stock_minimo: toInteger(data.stock_minimo),
     activo: Boolean(data.activo),
   };
 };
 
 /**
  * Transforma respuesta de producto del backend al frontend
+ * ✅ El backend ya devuelve 'stock', solo normalizar
  */
 export const transformProductoFromBackend = (data: any) => {
   return {
     ...data,
-    cantidad_stock: toInteger(data.stock || data.cantidad_stock), // ✅ Normalización
+    stock: toInteger(data.stock), // ✅ Normaliza el stock
     precio: toPrice(data.precio),
   };
 };

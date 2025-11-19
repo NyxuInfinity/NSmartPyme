@@ -5,12 +5,12 @@ import { toPrice, toInteger } from '../../utils/dataTransformers';
 interface Producto {
   id_producto?: number;
   id_categoria: number;
+  sku?: string;          // ✅ Agregado SKU
   nombre: string;
   descripcion?: string;
   precio: number | string;
-  stock: number | string;
+  stock: number | string;  // ✅ Cambiado a 'stock'
   stock_minimo?: number | string;
-  sku?: string;
   activo?: boolean;
 }
 
@@ -31,9 +31,9 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
       nombre: '',
       descripcion: '',
       precio: 0,
-      stock: 0,
-      cantidad_stock: 0,
-      sku: '',
+      stock: 0,           // ✅ Usar 'stock'
+      stock_minimo: 5,
+      sku: '',            // ✅ Agregar SKU
       id_categoria: 0,
       activo: true,
     }
@@ -71,7 +71,7 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
       // ✅ Conversión segura de tipos
       if (name === 'precio') {
         processedValue = toPrice(value);
-      } else if (name === 'cantidad_stock' || name === 'id_categoria') {
+      } else if (name === 'stock' || name === 'stock_minimo' || name === 'id_categoria') {
         processedValue = toInteger(value);
       } else if (type === 'checkbox') {
         processedValue = (e.target as HTMLInputElement).checked;
@@ -100,7 +100,7 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
       setError('El precio debe ser mayor a 0');
       return;
     }
-    if (formData.cantidad_stock < 0) {
+    if (formData.stock < 0) {
       setError('El stock no puede ser negativo');
       return;
     }
@@ -110,7 +110,6 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
 
     try {
       // ✅ Los datos ya están en el formato correcto gracias a handleChange
-      // El service se encargará de la transformación final
       if (producto?.id_producto) {
         await productoService.update(producto.id_producto, formData);
       } else {
@@ -160,7 +159,7 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
           {/* SKU */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              SKU <span className="text-red-500">*</span>
+              SKU
             </label>
             <input
               type="text"
@@ -168,8 +167,9 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
               value={formData.sku || ''}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="ej: PROD-001"
+              placeholder="ej: PROD-001 (opcional, se genera automáticamente)"
             />
+            <p className="text-xs text-gray-500 mt-1">Si lo dejas vacío, se generará automáticamente</p>
           </div>
 
           {/* Nombre */}
@@ -242,15 +242,15 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
             />
           </div>
 
-          {/* Stock - usar cantidad_stock como referencia visual */}
+          {/* Stock - ✅ Usar 'stock' */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Stock <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
-              name="cantidad_stock"
-              value={formData.cantidad_stock || formData.stock || 0}
+              name="stock"
+              value={formData.stock}
               onChange={handleChange}
               required
               min="0"

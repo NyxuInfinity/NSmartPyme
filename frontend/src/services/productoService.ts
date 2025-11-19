@@ -8,12 +8,12 @@ import {
 interface Producto {
   id_producto: number;
   id_categoria: number;
+  sku?: string;           // ✅ Agregado SKU
   nombre: string;
   descripcion?: string;
   precio: number;
-  stock: number;
+  stock: number;          // ✅ Cambiado a 'stock'
   stock_minimo?: number;
-  sku?: string;
   activo: boolean;
   categoria_nombre?: string;
   fecha_creacion?: string;
@@ -21,12 +21,12 @@ interface Producto {
 
 interface CreateProductoDTO {
   id_categoria: number;
+  sku?: string;           // ✅ Agregado SKU
   nombre: string;
   descripcion?: string;
   precio: number;
-  stock: number;
+  stock: number;          // ✅ Cambiado a 'stock'
   stock_minimo?: number;
-  sku?: string;
 }
 
 interface ApiResponse<T = any> {

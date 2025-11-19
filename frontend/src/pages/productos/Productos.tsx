@@ -6,11 +6,12 @@ import TablaProductos from '../../components/productos/TablaProductos';
 interface Producto {
   id_producto: number;
   id_categoria: number;
+  sku?: string;          // ✅ Agregado SKU
   nombre: string;
   descripcion?: string;
   precio: number;
-  cantidad_stock: number;
-  sku: string;
+  stock: number;         // ✅ Cambiado a 'stock'
+  stock_minimo?: number;
   activo: boolean;
   categoria_nombre?: string;
 }

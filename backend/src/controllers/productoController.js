@@ -73,6 +73,7 @@ class ProductoController {
     try {
       const {
         id_categoria,
+        sku,
         nombre,
         descripcion,
         precio,
@@ -96,6 +97,14 @@ class ProductoController {
         errores.precio = "El precio debe ser mayor a 0";
       }
 
+      // Validar SKU único si se proporciona
+      if (sku) {
+        const productoExistente = await Producto.findBySKU(sku);
+        if (productoExistente) {
+          errores.sku = "El SKU ya existe";
+        }
+      }
+
       if (Object.keys(errores).length > 0) {
         return validationErrorResponse(res, errores, "Datos inválidos");
       }
@@ -112,6 +121,7 @@ class ProductoController {
 
       const nuevoProducto = await Producto.create({
         id_categoria,
+        sku: sku?.trim(),
         nombre: nombre.trim(),
         descripcion: descripcion?.trim(),
         precio: parseFloat(precio),
@@ -137,6 +147,7 @@ class ProductoController {
       const { id } = req.params;
       const {
         id_categoria,
+        sku,
         nombre,
         descripcion,
         precio,
@@ -164,6 +175,14 @@ class ProductoController {
         errores.precio = "El precio debe ser mayor a 0";
       }
 
+      // Validar SKU único (diferente al actual)
+      if (sku) {
+        const productoConSKU = await Producto.findBySKU(sku);
+        if (productoConSKU && productoConSKU.id_producto != id) {
+          errores.sku = "El SKU ya existe";
+        }
+      }
+
       if (Object.keys(errores).length > 0) {
         return validationErrorResponse(res, errores, "Datos inválidos");
       }
@@ -186,6 +205,7 @@ class ProductoController {
 
       const productoActualizado = await Producto.update(id, {
         id_categoria,
+        sku: sku?.trim(),
         nombre: nombre.trim(),
         descripcion: descripcion?.trim(),
         precio: parseFloat(precio),
