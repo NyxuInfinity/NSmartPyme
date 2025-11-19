@@ -1,46 +1,68 @@
-import { useState } from 'react';
-import clienteService from '../../services/clienteService';
+import { useState, useEffect } from 'react';
+import usuarioService from '../../services/usuarioService';
 
-interface Cliente {
-  id_cliente?: number;
+interface Usuario {
+  id_usuario?: number;
+  id_rol: number;
   nombre: string;
-  apellido?: string;
+  apellido: string;
   email: string;
-  telefono?: string;
-  direccion?: string;
-  ciudad?: string;
-  documento?: string;
   activo?: boolean;
 }
 
-interface ModalClienteProps {
-  cliente: Cliente | null;
+interface Rol {
+  id_rol: number;
+  nombre: string;
+}
+
+interface ModalUsuarioProps {
+  usuario: Usuario | null;
   onClose: () => void;
   onGuardar: () => void;
 }
 
-const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
-  const [formData, setFormData] = useState<Cliente>(
-    cliente || {
+const ModalUsuario = ({ usuario, onClose, onGuardar }: ModalUsuarioProps) => {
+  const [formData, setFormData] = useState<Usuario & { password?: string }>(
+    usuario || {
+      id_rol: 0,
       nombre: '',
       apellido: '',
       email: '',
-      telefono: '',
-      direccion: '',
-      ciudad: '',
-      documento: '',
       activo: true,
+      password: '',
     }
   );
 
+  const [roles, setRoles] = useState<Rol[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    cargarRoles();
+  }, []);
+
+  const cargarRoles = async () => {
+    try {
+      const data = await usuarioService.getRoles();
+      setRoles(data);
+      // Si no hay rol seleccionado, selecciona el primero
+      if (formData.id_rol === 0 && data.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          id_rol: data[0].id_rol,
+        }));
+      }
+    } catch (err) {
+      console.error('Error al cargar roles:', err);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
+              type === 'number' ? parseInt(value) : value,
     }));
   };
 
@@ -52,7 +74,7 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
       setError('El nombre es requerido');
       return;
     }
-    if (!formData.apellido?.trim()) {
+    if (!formData.apellido.trim()) {
       setError('El apellido es requerido');
       return;
     }
@@ -64,8 +86,14 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
       setError('El email no es válido');
       return;
     }
-    if (!formData.telefono?.trim()) {
-      setError('El teléfono es requerido');
+    if (formData.id_rol === 0) {
+      setError('Debes seleccionar un rol');
+      return;
+    }
+
+    // Si es nuevo usuario, la contraseña es requerida
+    if (!usuario?.id_usuario && !formData.password?.trim()) {
+      setError('La contraseña es requerida para usuarios nuevos');
       return;
     }
 
@@ -73,26 +101,30 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
     setError('');
 
     try {
-      const dataToSend = {
+      const dataToSend: any = {
+        id_rol: formData.id_rol,
         nombre: formData.nombre.trim(),
-        apellido: formData.apellido?.trim() || '',
+        apellido: formData.apellido.trim(),
         email: formData.email.trim(),
-        telefono: formData.telefono?.trim() || '',
-        direccion: formData.direccion?.trim() || '',
       };
 
-      if (cliente?.id_cliente) {
+      // Si es nuevo usuario, incluir contraseña
+      if (!usuario?.id_usuario) {
+        dataToSend.password = formData.password;
+      }
+
+      if (usuario?.id_usuario) {
         // Actualizar
-        await clienteService.update(cliente.id_cliente, dataToSend);
+        await usuarioService.update(usuario.id_usuario, dataToSend);
       } else {
         // Crear
-        await clienteService.create(dataToSend);
+        await usuarioService.create(dataToSend);
       }
       onGuardar();
     } catch (err: any) {
       console.error('Error completo:', err);
       console.error('Response:', err.response?.data);
-      setError(err.response?.data?.message || err.message || 'Error al guardar cliente');
+      setError(err.response?.data?.message || err.message || 'Error al guardar usuario');
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +136,7 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-bold text-gray-900">
-            {cliente?.id_cliente ? 'Editar Cliente' : 'Nuevo Cliente'}
+            {usuario?.id_usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
           </h2>
           <button
             onClick={onClose}
@@ -142,7 +174,7 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
               onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Nombre del cliente"
+              placeholder="Nombre"
             />
           </div>
 
@@ -154,11 +186,11 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
             <input
               type="text"
               name="apellido"
-              value={formData.apellido || ''}
+              value={formData.apellido}
               onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Apellido del cliente"
+              placeholder="Apellido"
             />
           </div>
 
@@ -174,55 +206,49 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
               onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="cliente@email.com"
+              placeholder="usuario@email.com"
             />
           </div>
 
-          {/* Teléfono */}
+          {/* Rol */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Teléfono <span className="text-red-500">*</span>
+              Rol <span className="text-red-500">*</span>
             </label>
-            <input
-              type="tel"
-              name="telefono"
-              value={formData.telefono || ''}
+            <select
+              name="id_rol"
+              value={formData.id_rol}
               onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="+56 9 1234 5678"
-            />
+            >
+              <option value={0}>Selecciona un rol</option>
+              {roles.map(rol => (
+                <option key={rol.id_rol} value={rol.id_rol}>
+                  {rol.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Dirección */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dirección
-            </label>
-            <input
-              type="text"
-              name="direccion"
-              value={formData.direccion || ''}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Calle, número, etc."
-            />
-          </div>
-
-          {/* Ciudad (opcional, pero en el backend se usa) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ciudad
-            </label>
-            <input
-              type="text"
-              name="ciudad"
-              value={formData.ciudad || ''}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Ej: Santiago"
-            />
-          </div>
+          {/* Contraseña (solo para nuevos usuarios) */}
+          {!usuario?.id_usuario && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contraseña <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password || ''}
+                onChange={handleChange}
+                required={!usuario?.id_usuario}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="Mínimo 6 caracteres"
+              />
+              <p className="text-xs text-gray-500 mt-1">Será enviada al usuario por email</p>
+            </div>
+          )}
 
           {/* Botones */}
           <div className="flex space-x-3 pt-4 border-t">
@@ -247,4 +273,4 @@ const ModalCliente = ({ cliente, onClose, onGuardar }: ModalClienteProps) => {
   );
 };
 
-export default ModalCliente;
+export default ModalUsuario;

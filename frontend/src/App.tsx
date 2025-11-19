@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Productos from './pages/productos/Productos';
 import Categorias from './pages/categorias/Categorias';
 import Clientes from './pages/clientes/Clientes';
+import Usuarios from './pages/usuarios/Usuarios';
 
 function App() {
   return (
@@ -84,10 +85,7 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold text-gray-800">Módulo de Usuarios</h2>
-                    <p className="text-gray-600 mt-2">Próximamente...</p>
-                  </div>
+                  <Usuarios />
                 </Layout>
               </PrivateRoute>
             }
