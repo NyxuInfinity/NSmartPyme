@@ -19,6 +19,7 @@ const Pedidos = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const usuarioId = parseInt(localStorage.getItem('usuarioId') || '1');
 
   // Cargar pedidos
   useEffect(() => {
@@ -62,7 +63,7 @@ const Pedidos = () => {
   };
 
   return (
-    <div>
+    <div className="p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -117,6 +118,7 @@ const Pedidos = () => {
       {/* Modal */}
       {showModal && (
         <ModalPedido
+          usuarioId={usuarioId}
           onClose={() => setShowModal(false)}
           onGuardar={handleGuardar}
         />

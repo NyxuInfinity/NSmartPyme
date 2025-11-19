@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import pedidoService from '../../services/pedidoService';
-import { toPrice, toInteger } from '../../utils/dataTransformers';
 
 interface Producto {
   id_producto: number;
   nombre: string;
   precio: number | string;
   stock: number | string;
-  cantidad_stock?: number | string;
 }
 
 interface Cliente {
@@ -20,15 +18,16 @@ interface Cliente {
 interface DetallePedido {
   id_producto: number;
   cantidad: number;
-  precio_unitario: number | string;
+  precio_unitario: number;
 }
 
 interface ModalPedidoProps {
+  usuarioId: number;
   onClose: () => void;
   onGuardar: () => void;
 }
 
-const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
+const ModalPedido = ({ usuarioId, onClose, onGuardar }: ModalPedidoProps) => {
   const [idCliente, setIdCliente] = useState<number>(0);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -58,15 +57,15 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
     }
   };
 
-  // Función para obtener el stock (busca en stock o cantidad_stock)
+  // Función para obtener el stock
   const getStock = (producto: any): number => {
-    const stock = producto.stock !== undefined ? producto.stock : producto.cantidad_stock;
+    const stock = producto.stock || 0;
     const numStock = typeof stock === 'string' ? parseInt(stock) : stock;
     return isNaN(numStock) ? 0 : numStock;
   };
 
   // Función para convertir precio a número
-  const getPrecioNumero = (precio: any): number => {
+  const getPrecio = (precio: any): number => {
     const num = typeof precio === 'string' ? parseFloat(precio) : precio;
     return isNaN(num) ? 0 : num;
   };
@@ -76,10 +75,7 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
       setError('Selecciona un producto');
       return;
     }
-
-    // ✅ Validación segura de cantidad
-    const cantidadValida = toInteger(cantidad, 1);
-    if (cantidadValida <= 0) {
+    if (cantidad <= 0) {
       setError('La cantidad debe ser mayor a 0');
       return;
     }
@@ -87,23 +83,32 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
     const producto = productos.find(p => p.id_producto === productoSeleccionado);
     if (!producto) return;
 
-    if (cantidadValida > producto.cantidad_stock) {
-      setError(`Stock insuficiente. Disponible: ${producto.cantidad_stock}`);
+    const stockDisponible = getStock(producto);
+    if (cantidad > stockDisponible) {
+      setError(`Stock insuficiente. Disponible: ${stockDisponible}`);
       return;
     }
 
-    const indiceExistente = detalles.findIndex(d => d.id_producto === productoSeleccionado);
+    const precioNumero = getPrecio(producto.precio);
+
+    // Verificar si el producto ya existe
+    const indiceExistente = detalles.findIndex(
+      d => d.id_producto === productoSeleccionado
+    );
+
     if (indiceExistente >= 0) {
+      // Actualizar cantidad
       const nuevosDetalles = [...detalles];
-      nuevosDetalles[indiceExistente].cantidad += cantidadValida;
+      nuevosDetalles[indiceExistente].cantidad += cantidad;
       setDetalles(nuevosDetalles);
     } else {
+      // Agregar nuevo
       setDetalles([
         ...detalles,
         {
           id_producto: productoSeleccionado,
-          cantidad: cantidadValida,
-          precio_unitario: toPrice(producto.precio), // ✅ Conversión segura
+          cantidad,
+          precio_unitario: precioNumero,
         },
       ]);
     }
@@ -113,54 +118,47 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
     setError('');
   };
 
-  const eliminarDetalle = (id: number) => {
-    setDetalles(detalles.filter((d, i) => i !== id));
+  const eliminarDetalle = (index: number) => {
+    setDetalles(detalles.filter((_, i) => i !== index));
   };
 
   const calcularTotal = () => {
     return detalles.reduce((total, detalle) => {
-      const precio = getPrecioNumero(detalle.precio_unitario);
-      return total + detalle.cantidad * precio;
+      return total + detalle.cantidad * detalle.precio_unitario;
     }, 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ Validaciones mejoradas
     if (idCliente === 0) {
       setError('Selecciona un cliente');
       return;
     }
     if (detalles.length === 0) {
-      setError('Agrega al menos un producto al pedido');
+      setError('Agrega al menos un producto');
       return;
-    }
-
-    // ✅ Validar que todos los detalles tengan datos válidos
-    for (const detalle of detalles) {
-      if (detalle.cantidad <= 0) {
-        setError('Todas las cantidades deben ser mayores a 0');
-        return;
-      }
-      if (detalle.precio_unitario <= 0) {
-        setError('Todos los precios deben ser mayores a 0');
-        return;
-      }
     }
 
     setIsLoading(true);
     setError('');
 
     try {
-      // ✅ El service se encarga de la transformación
-      await pedidoService.create({
+      const datosEnvio = {
+        id_usuario: usuarioId,
         id_cliente: idCliente,
-        detalles,
-      });
+        productos: detalles,
+      };
+
+      console.log('📤 Datos a enviar:', datosEnvio);
+
+      await pedidoService.create(datosEnvio);
       onGuardar();
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Error al crear pedido');
+      console.error('❌ Error:', err);
+      setError(
+        err.response?.data?.message || err.message || 'Error al crear pedido'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -213,7 +211,7 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
               <option value={0}>Selecciona un cliente</option>
               {clientes.map(cliente => (
                 <option key={cliente.id_cliente} value={cliente.id_cliente}>
-                  {cliente.nombre} {cliente.apellido} ({cliente.email})
+                  {cliente.nombre} {cliente.apellido}
                 </option>
               ))}
             </select>
@@ -237,7 +235,7 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
                   <option value={0}>Selecciona un producto</option>
                   {productos.map(producto => {
                     const stock = getStock(producto);
-                    const precio = getPrecioNumero(producto.precio);
+                    const precio = getPrecio(producto.precio);
                     return (
                       <option key={producto.id_producto} value={producto.id_producto}>
                         {producto.nombre} - ${precio.toFixed(2)} (Stock: {stock})
@@ -257,7 +255,7 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
                   value={cantidad}
                   onChange={(e) => setCantidad(Math.max(1, parseInt(e.target.value) || 1))}
                   min="1"
-                  max={productoActual ? getStock(productoActual) : 100}
+                  max={productoActual ? getStock(productoActual) : 1000}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -289,28 +287,24 @@ const ModalPedido = ({ onClose, onGuardar }: ModalPedidoProps) => {
                 <tbody className="divide-y">
                   {detalles.map((detalle, index) => {
                     const producto = productos.find(p => p.id_producto === detalle.id_producto);
-                    const precioNumero = getPrecioNumero(detalle.precio_unitario);
-                    const subtotal = detalle.cantidad * precioNumero;
+                    const subtotal = detalle.cantidad * detalle.precio_unitario;
                     return (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-4 py-2">{producto?.nombre}</td>
                         <td className="px-4 py-2 text-center">{detalle.cantidad}</td>
-                        <td className="px-4 py-2 text-right">${precioNumero.toFixed(2)}</td>
-                        <td className="px-4 py-2 text-right font-medium">${subtotal.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right">
+                          ${detalle.precio_unitario.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium">
+                          ${subtotal.toFixed(2)}
+                        </td>
                         <td className="px-4 py-2 text-center">
                           <button
                             type="button"
                             onClick={() => eliminarDetalle(index)}
                             className="text-red-600 hover:text-red-800"
                           >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
+                            ✕
                           </button>
                         </td>
                       </tr>

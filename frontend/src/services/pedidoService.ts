@@ -1,19 +1,15 @@
 import apiClient from '../api/axios.config';
 
 interface DetallePedido {
-  id_detalle_pedido: number;
-  id_pedido: number;
   id_producto: number;
   cantidad: number;
   precio_unitario: number;
-  subtotal: number;
-  producto_nombre?: string;
 }
 
 interface Pedido {
   id_pedido: number;
   id_cliente: number;
-  id_usuario: number;
+  id_usuario?: number;
   numero_pedido: string;
   fecha_pedido: string;
   estado: string;
@@ -26,7 +22,7 @@ interface Pedido {
 
 interface CreatePedidoDTO {
   id_cliente: number;
-  detalles: {
+  productos: {
     id_producto: number;
     cantidad: number;
     precio_unitario: number;
@@ -43,7 +39,7 @@ interface Producto {
   id_producto: number;
   nombre: string;
   precio: number;
-  cantidad_stock: number;
+  stock: number;
 }
 
 interface Cliente {
@@ -76,24 +72,46 @@ const pedidoService = {
     }
   },
 
-  // Crear pedido
+  // Crear pedido - ⚠️ CAMPO CLAVE: "productos" NO "detalles"
   create: async (data: CreatePedidoDTO): Promise<Pedido> => {
     try {
+      console.log('🚀 Enviando pedido al backend:', JSON.stringify(data, null, 2));
+      
       const response = await apiClient.post<ApiResponse<Pedido>>('/pedidos', data);
+      
+      console.log('✅ Pedido creado exitosamente:', response.data.data);
       return response.data.data!;
-    } catch (error) {
-      console.error('Error en create:', error);
+    } catch (error: any) {
+      console.error('❌ Error en create pedido:', error);
+      console.error('Status:', error.response?.status);
+      console.error('Errores:', error.response?.data);
       throw error;
     }
   },
 
   // Actualizar estado de pedido
-  updateEstado: async (id: number, estado: string): Promise<Pedido> => {
+  updateEstado: async (id: number, id_estado: number): Promise<Pedido> => {
     try {
-      const response = await apiClient.put<ApiResponse<Pedido>>(`/pedidos/${id}`, { estado });
+      const response = await apiClient.put<ApiResponse<Pedido>>(
+        `/pedidos/${id}/estado`,
+        { id_estado }
+      );
       return response.data.data!;
     } catch (error) {
       console.error('Error en updateEstado:', error);
+      throw error;
+    }
+  },
+
+  // Cancelar pedido
+  cancel: async (id: number): Promise<Pedido> => {
+    try {
+      const response = await apiClient.post<ApiResponse<Pedido>>(
+        `/pedidos/${id}/cancelar`
+      );
+      return response.data.data!;
+    } catch (error) {
+      console.error('Error en cancel:', error);
       throw error;
     }
   },
@@ -112,6 +130,7 @@ const pedidoService = {
   getProductos: async (): Promise<Producto[]> => {
     try {
       const response = await apiClient.get<ApiResponse<Producto[]>>('/productos');
+      console.log('Productos obtenidos:', response.data.data);
       return response.data.data || [];
     } catch (error) {
       console.error('Error en getProductos:', error);
