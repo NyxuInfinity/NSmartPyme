@@ -1,6 +1,7 @@
 -- ============================================
 -- SMARTPYME - SCHEMA DE BASE DE DATOS
 -- Sistema de Gestión de Ventas y Pedidos
+-- Última actualización: 2025-11-19
 -- ============================================
 
 -- Configuración inicial
@@ -61,6 +62,7 @@ CREATE TABLE categorias (
 CREATE TABLE productos (
     id_producto INT AUTO_INCREMENT PRIMARY KEY,
     id_categoria INT NOT NULL,
+    sku VARCHAR(50) UNIQUE,
     nombre VARCHAR(150) NOT NULL,
     descripcion TEXT,
     precio DECIMAL(10,2) NOT NULL,
@@ -71,6 +73,7 @@ CREATE TABLE productos (
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria) ON DELETE RESTRICT,
+    INDEX idx_sku (sku),
     INDEX idx_nombre (nombre),
     INDEX idx_categoria (id_categoria),
     INDEX idx_activo (activo),
@@ -176,14 +179,14 @@ INSERT INTO estados_pedido (nombre, descripcion, orden) VALUES
 ('Entregado', 'Pedido entregado al cliente', 4),
 ('Cancelado', 'Pedido cancelado', 5);
 
--- Insertar algunos productos de ejemplo
-INSERT INTO productos (id_categoria, nombre, descripcion, precio, stock, stock_minimo) VALUES
-(1, 'Torta de Chocolate', 'Deliciosa torta de chocolate para 10 personas', 15000.00, 20, 5),
-(1, 'Kuchen de Manzana', 'Kuchen casero de manzana para 8 personas', 12000.00, 15, 3),
-(2, 'Pan Amasado', 'Pan amasado tradicional', 500.00, 100, 20),
-(2, 'Hallulla', 'Hallulla recién horneada', 300.00, 150, 30),
-(3, 'Empanada de Queso', 'Empanada de queso horneada', 1200.00, 50, 10),
-(4, 'Jugo Natural Naranja', 'Jugo natural de naranja 500ml', 2000.00, 30, 5);
+-- Insertar algunos productos de ejemplo (con SKU)
+INSERT INTO productos (id_categoria, sku, nombre, descripcion, precio, stock, stock_minimo) VALUES
+(1, 'PROD-0001', 'Torta de Chocolate', 'Deliciosa torta de chocolate para 10 personas', 15000.00, 20, 5),
+(1, 'PROD-0002', 'Kuchen de Manzana', 'Kuchen casero de manzana para 8 personas', 12000.00, 15, 3),
+(2, 'PROD-0003', 'Pan Amasado', 'Pan amasado tradicional', 500.00, 100, 20),
+(2, 'PROD-0004', 'Hallulla', 'Hallulla recién horneada', 300.00, 150, 30),
+(3, 'PROD-0005', 'Empanada de Queso', 'Empanada de queso horneada', 1200.00, 50, 10),
+(4, 'PROD-0006', 'Jugo Natural Naranja', 'Jugo natural de naranja 500ml', 2000.00, 30, 5);
 
 SET FOREIGN_KEY_CHECKS = 1;
 
