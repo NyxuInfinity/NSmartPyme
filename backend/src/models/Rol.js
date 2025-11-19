@@ -9,15 +9,18 @@ class Rol {
     try {
       const [rows] = await pool.query(
         `SELECT 
-                    id_rol, 
-                    nombre, 
-                    descripcion, 
-                    activo,
-                    fecha_creacion,
-                    fecha_actualizacion
-                FROM roles 
-                WHERE activo = 1
-                ORDER BY nombre ASC`
+          r.id_rol,
+          r.nombre,
+          r.descripcion,
+          r.activo,
+          r.fecha_creacion,
+          r.fecha_actualizacion,
+          COUNT(rp.id_permiso) as cantidad_permisos
+        FROM roles r
+        LEFT JOIN rol_permisos rp ON r.id_rol = rp.id_rol
+        WHERE r.activo = 1
+        GROUP BY r.id_rol
+        ORDER BY r.nombre ASC`
       );
       return rows;
     } catch (error) {
@@ -26,44 +29,43 @@ class Rol {
   }
 
   /**
-   * Obtener un rol por ID
+   * Obtener un rol por ID con sus permisos
    */
   static async findById(id) {
     try {
       const [rows] = await pool.query(
         `SELECT 
-                    id_rol, 
-                    nombre, 
-                    descripcion, 
-                    activo,
-                    fecha_creacion,
-                    fecha_actualizacion
-                FROM roles 
-                WHERE id_rol = ?`,
+          id_rol,
+          nombre,
+          descripcion,
+          activo,
+          fecha_creacion,
+          fecha_actualizacion
+        FROM roles
+        WHERE id_rol = ?`,
         [id]
       );
-      return rows[0];
-    } catch (error) {
-      throw error;
-    }
-  }
 
-  /**
-   * Buscar rol por nombre
-   */
-  static async findByName(nombre) {
-    try {
-      const [rows] = await pool.query(
+      if (rows.length === 0) return null;
+
+      const rol = rows[0];
+
+      // Obtener permisos del rol
+      const [permisos] = await pool.query(
         `SELECT 
-                    id_rol, 
-                    nombre, 
-                    descripcion, 
-                    activo
-                FROM roles 
-                WHERE LOWER(nombre) = LOWER(?)`,
-        [nombre]
+          p.id_permiso,
+          p.codigo,
+          p.nombre,
+          p.modulo
+        FROM permisos p
+        INNER JOIN rol_permisos rp ON p.id_permiso = rp.id_permiso
+        WHERE rp.id_rol = ? AND p.activo = 1
+        ORDER BY p.modulo, p.nombre`,
+        [id]
       );
-      return rows[0];
+
+      rol.permisos = permisos;
+      return rol;
     } catch (error) {
       throw error;
     }
@@ -77,16 +79,11 @@ class Rol {
       const { nombre, descripcion } = rolData;
 
       const [result] = await pool.query(
-        `INSERT INTO roles (nombre, descripcion) 
-                 VALUES (?, ?)`,
+        `INSERT INTO roles (nombre, descripcion) VALUES (?, ?)`,
         [nombre, descripcion || null]
       );
 
-      return {
-        id_rol: result.insertId,
-        nombre,
-        descripcion,
-      };
+      return await this.findById(result.insertId);
     } catch (error) {
       throw error;
     }
@@ -101,15 +98,12 @@ class Rol {
 
       const [result] = await pool.query(
         `UPDATE roles 
-                 SET nombre = ?, 
-                     descripcion = ?
-                 WHERE id_rol = ?`,
+        SET nombre = ?, descripcion = ?
+        WHERE id_rol = ?`,
         [nombre, descripcion || null, id]
       );
 
-      if (result.affectedRows === 0) {
-        return null;
-      }
+      if (result.affectedRows === 0) return null;
 
       return await this.findById(id);
     } catch (error) {
@@ -123,9 +117,7 @@ class Rol {
   static async delete(id) {
     try {
       const [result] = await pool.query(
-        `UPDATE roles 
-                 SET activo = 0 
-                 WHERE id_rol = ?`,
+        `UPDATE roles SET activo = 0 WHERE id_rol = ?`,
         [id]
       );
 
@@ -136,34 +128,20 @@ class Rol {
   }
 
   /**
-   * Verificar si un rol tiene usuarios asociados
+   * Verificar si un nombre de rol ya existe
    */
-  static async hasUsers(id) {
+  static async existsByName(nombre, excludeId = null) {
     try {
-      const [rows] = await pool.query(
-        `SELECT COUNT(*) as count 
-                 FROM usuarios 
-                 WHERE id_rol = ? AND activo = 1`,
-        [id]
-      );
-      return rows[0].count > 0;
-    } catch (error) {
-      throw error;
-    }
-  }
+      let query = `SELECT COUNT(*) as count FROM roles WHERE nombre = ? AND activo = 1`;
+      let params = [nombre];
 
-  /**
-   * Contar usuarios por rol
-   */
-  static async countUsers(id) {
-    try {
-      const [rows] = await pool.query(
-        `SELECT COUNT(*) as count 
-                 FROM usuarios 
-                 WHERE id_rol = ? AND activo = 1`,
-        [id]
-      );
-      return rows[0].count;
+      if (excludeId) {
+        query += ` AND id_rol != ?`;
+        params.push(excludeId);
+      }
+
+      const [rows] = await pool.query(query, params);
+      return rows[0].count > 0;
     } catch (error) {
       throw error;
     }

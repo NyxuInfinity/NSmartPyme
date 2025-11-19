@@ -316,6 +316,43 @@ class PedidoController {
       return errorResponse(res, "Error al cancelar el pedido");
     }
   }
+
+  static async updateEstado(req, res) {
+    try {
+      const { id } = req.params;
+      const { id_estado } = req.body;
+
+      if (isNaN(id)) {
+        return validationErrorResponse(res, null, "ID inválido");
+      }
+
+      if (!id_estado) {
+        return validationErrorResponse(
+          res,
+          { id_estado: "El estado es requerido" },
+          "Datos inválidos"
+        );
+      }
+
+      const pedido = await Pedido.findById(id);
+      if (!pedido) {
+        return notFoundResponse(res, "Pedido no encontrado");
+      }
+
+      // Actualizar solo el estado
+      await Pedido.updateEstado(id, id_estado);
+      const pedidoActualizado = await Pedido.findById(id);
+
+      return successResponse(
+        res,
+        pedidoActualizado,
+        "Estado del pedido actualizado exitosamente"
+      );
+    } catch (error) {
+      console.error("Error al actualizar estado del pedido:", error);
+      return errorResponse(res, "Error al actualizar el estado del pedido");
+    }
+  }
 }
 
 module.exports = PedidoController;

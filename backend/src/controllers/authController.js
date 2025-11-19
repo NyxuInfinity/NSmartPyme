@@ -109,18 +109,28 @@ class AuthController {
    */
   static async getProfile(req, res) {
     try {
-      const usuario = await Usuario.findById(req.user.id_usuario);
+      const { id_usuario } = req.user;
+
+      // Obtener usuario
+      const usuario = await Usuario.findById(id_usuario);
 
       if (!usuario) {
         return unauthorizedResponse(res, "Usuario no encontrado");
       }
+
+      // Obtener permisos del rol del usuario
+      const Permiso = require("../models/Permiso");
+      const permisos = await Permiso.findByRol(usuario.id_rol);
 
       // Remover la contraseña
       const { password, ...usuarioSinPassword } = usuario;
 
       return successResponse(
         res,
-        usuarioSinPassword,
+        {
+          ...usuarioSinPassword,
+          permisos: permisos.map((p) => p.codigo), // Solo los códigos de permisos
+        },
         "Perfil obtenido exitosamente"
       );
     } catch (error) {

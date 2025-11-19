@@ -415,6 +415,19 @@ class Pedido {
       throw error;
     }
   }
+
+  static async updateEstado(id, idEstado) {
+    try {
+      const [result] = await pool.query(
+        `UPDATE pedidos SET id_estado = ? WHERE id_pedido = ?`,
+        [idEstado, id]
+      );
+
+      return result.affectedRows > 0;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = Pedido;

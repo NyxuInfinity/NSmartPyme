@@ -12,6 +12,7 @@ interface User {
   email: string;
   activo: boolean;
   rol_nombre: string;
+  permisos?: string[];
   fecha_creacion?: string;
   ultimo_acceso?: string;
 }
