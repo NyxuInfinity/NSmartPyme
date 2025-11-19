@@ -1,4 +1,9 @@
 import apiClient from '../api/axios.config';
+import {
+  transformProductoToBackend,
+  transformProductoFromBackend,
+  validateRequiredFields,
+} from '../utils/dataTransformers';
 
 interface Producto {
   id_producto: number;
@@ -6,8 +11,9 @@ interface Producto {
   nombre: string;
   descripcion?: string;
   precio: number;
-  cantidad_stock: number;
-  sku: string;
+  stock: number;
+  stock_minimo?: number;
+  sku?: string;
   activo: boolean;
   categoria_nombre?: string;
   fecha_creacion?: string;
@@ -18,8 +24,9 @@ interface CreateProductoDTO {
   nombre: string;
   descripcion?: string;
   precio: number;
-  cantidad_stock: number;
-  sku: string;
+  stock: number;
+  stock_minimo?: number;
+  sku?: string;
 }
 
 interface ApiResponse<T = any> {
@@ -33,7 +40,9 @@ const productoService = {
   getAll: async (): Promise<Producto[]> => {
     try {
       const response = await apiClient.get<ApiResponse<Producto[]>>('/productos');
-      return response.data.data || [];
+      const productos = response.data.data || [];
+      // ✅ Normalizar respuesta del backend
+      return productos.map(transformProductoFromBackend);
     } catch (error) {
       console.error('Error en getAll:', error);
       throw error;
@@ -44,7 +53,8 @@ const productoService = {
   getById: async (id: number): Promise<Producto> => {
     try {
       const response = await apiClient.get<ApiResponse<Producto>>(`/productos/${id}`);
-      return response.data.data!;
+      // ✅ Normalizar respuesta del backend
+      return transformProductoFromBackend(response.data.data!);
     } catch (error) {
       console.error('Error en getById:', error);
       throw error;
@@ -52,10 +62,19 @@ const productoService = {
   },
 
   // Crear producto
-  create: async (data: CreateProductoDTO): Promise<Producto> => {
+  create: async (data: Omit<Producto, 'id_producto'>): Promise<Producto> => {
     try {
-      const response = await apiClient.post<ApiResponse<Producto>>('/productos', data);
-      return response.data.data!;
+      // ✅ Validar campos requeridos
+      const validation = validateRequiredFields(data, ['nombre', 'precio', 'id_categoria']);
+      if (!validation.valid) {
+        throw new Error(`Campos requeridos faltantes: ${validation.missing.join(', ')}`);
+      }
+
+      // ✅ Transformar datos al formato del backend
+      const backendData = transformProductoToBackend(data);
+
+      const response = await apiClient.post<ApiResponse<Producto>>('/productos', backendData);
+      return transformProductoFromBackend(response.data.data!);
     } catch (error) {
       console.error('Error en create:', error);
       throw error;
@@ -63,10 +82,13 @@ const productoService = {
   },
 
   // Actualizar producto
-  update: async (id: number, data: Partial<CreateProductoDTO>): Promise<Producto> => {
+  update: async (id: number, data: Partial<Producto>): Promise<Producto> => {
     try {
-      const response = await apiClient.put<ApiResponse<Producto>>(`/productos/${id}`, data);
-      return response.data.data!;
+      // ✅ Transformar datos al formato del backend
+      const backendData = transformProductoToBackend(data);
+
+      const response = await apiClient.put<ApiResponse<Producto>>(`/productos/${id}`, backendData);
+      return transformProductoFromBackend(response.data.data!);
     } catch (error) {
       console.error('Error en update:', error);
       throw error;

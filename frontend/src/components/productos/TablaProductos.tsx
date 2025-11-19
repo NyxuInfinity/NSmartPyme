@@ -4,8 +4,8 @@ interface Producto {
   nombre: string;
   descripcion?: string;
   precio: number;
-  cantidad_stock: number;
-  sku: string;
+  stock: number;
+  sku?: string;
   activo: boolean;
   categoria_nombre?: string;
 }
@@ -17,7 +17,6 @@ interface TablaProductosProps {
 }
 
 const TablaProductos = ({ productos, onEditar, onEliminar }: TablaProductosProps) => {
-  // Función para formatear precio
   const formatPrecio = (precio: any): string => {
     const num = typeof precio === 'string' ? parseFloat(precio) : precio;
     return isNaN(num) ? '0.00' : num.toFixed(2);
@@ -40,7 +39,7 @@ const TablaProductos = ({ productos, onEditar, onEliminar }: TablaProductosProps
         <tbody className="divide-y">
           {productos.map((producto) => (
             <tr key={producto.id_producto} className="hover:bg-gray-50 transition">
-              <td className="px-6 py-4 text-sm text-gray-900 font-medium">{producto.sku}</td>
+              <td className="px-6 py-4 text-sm text-gray-900 font-medium">{producto.sku || 'N/A'}</td>
               <td className="px-6 py-4">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{producto.nombre}</p>
@@ -54,14 +53,14 @@ const TablaProductos = ({ productos, onEditar, onEliminar }: TablaProductosProps
               <td className="px-6 py-4 text-sm text-right">
                 <span
                   className={`px-2 py-1 rounded text-xs font-semibold ${
-                    producto.cantidad_stock > 10
+                    producto.stock > 10
                       ? 'bg-green-100 text-green-800'
-                      : producto.cantidad_stock > 0
+                      : producto.stock > 0
                       ? 'bg-yellow-100 text-yellow-800'
                       : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {producto.cantidad_stock}
+                  {producto.stock}
                 </span>
               </td>
               <td className="px-6 py-4 text-center">

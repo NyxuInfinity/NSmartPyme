@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import productoService from '../../services/productoService';
+import { toPrice, toInteger } from '../../utils/dataTransformers';
 
 interface Producto {
   id_producto?: number;
@@ -7,8 +8,9 @@ interface Producto {
   nombre: string;
   descripcion?: string;
   precio: number | string;
-  cantidad_stock: number | string;
-  sku: string;
+  stock: number | string;
+  stock_minimo?: number | string;
+  sku?: string;
   activo?: boolean;
 }
 
@@ -26,12 +28,13 @@ interface ModalProductoProps {
 const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => {
   const [formData, setFormData] = useState<Producto>(
     producto || {
-      id_categoria: 0,
       nombre: '',
       descripcion: '',
       precio: 0,
+      stock: 0,
       cantidad_stock: 0,
       sku: '',
+      id_categoria: 0,
       activo: true,
     }
   );
@@ -48,7 +51,6 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
     try {
       const data = await productoService.getCategorias();
       setCategorias(data);
-      // Si no hay categoría seleccionada, selecciona la primera
       if (formData.id_categoria === 0 && data.length > 0) {
         setFormData(prev => ({
           ...prev,
@@ -60,44 +62,46 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    const inputElement = e.target as any;
+    
+    setFormData(prev => {
+      let processedValue: any = value;
 
-    let finalValue: any = value;
+      // ✅ Conversión segura de tipos
+      if (name === 'precio') {
+        processedValue = toPrice(value);
+      } else if (name === 'cantidad_stock' || name === 'id_categoria') {
+        processedValue = toInteger(value);
+      } else if (type === 'checkbox') {
+        processedValue = (e.target as HTMLInputElement).checked;
+      }
 
-    if (type === 'checkbox') {
-      finalValue = inputElement.checked;
-    } else if (type === 'number') {
-      finalValue = value === '' ? 0 : parseFloat(value);
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      [name]: finalValue,
-    }));
+      return {
+        ...prev,
+        [name]: processedValue,
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones
+    // ✅ Validaciones mejoradas
     if (!formData.nombre.trim()) {
       setError('El nombre es requerido');
-      return;
-    }
-    if (!formData.sku.trim()) {
-      setError('El SKU es requerido');
       return;
     }
     if (formData.id_categoria === 0) {
       setError('Debes seleccionar una categoría');
       return;
     }
-    if (parseFloat(formData.precio.toString()) <= 0) {
+    if (formData.precio <= 0) {
       setError('El precio debe ser mayor a 0');
+      return;
+    }
+    if (formData.cantidad_stock < 0) {
+      setError('El stock no puede ser negativo');
       return;
     }
 
@@ -105,25 +109,17 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
     setError('');
 
     try {
-      const dataToSend = {
-        id_categoria: formData.id_categoria,
-        nombre: formData.nombre.trim(),
-        descripcion: formData.descripcion?.trim() || '',
-        precio: parseFloat(formData.precio.toString()),
-        cantidad_stock: parseInt(formData.cantidad_stock.toString()),
-        sku: formData.sku.trim(),
-      };
-
+      // ✅ Los datos ya están en el formato correcto gracias a handleChange
+      // El service se encargará de la transformación final
       if (producto?.id_producto) {
-        // Actualizar
-        await productoService.update(producto.id_producto, dataToSend);
+        await productoService.update(producto.id_producto, formData);
       } else {
-        // Crear
-        await productoService.create(dataToSend);
+        await productoService.create(formData);
       }
       onGuardar();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar producto');
+      console.error('Error completo:', err);
+      setError(err.response?.data?.message || err.message || 'Error al guardar producto');
     } finally {
       setIsLoading(false);
     }
@@ -169,9 +165,8 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
             <input
               type="text"
               name="sku"
-              value={formData.sku}
+              value={formData.sku || ''}
               onChange={handleChange}
-              required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="ej: PROD-001"
             />
@@ -247,20 +242,35 @@ const ModalProducto = ({ producto, onClose, onGuardar }: ModalProductoProps) => 
             />
           </div>
 
-          {/* Stock */}
+          {/* Stock - usar cantidad_stock como referencia visual */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cantidad en Stock <span className="text-red-500">*</span>
+              Stock <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               name="cantidad_stock"
-              value={formData.cantidad_stock}
+              value={formData.cantidad_stock || formData.stock || 0}
               onChange={handleChange}
               required
               min="0"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="0"
+            />
+          </div>
+
+          {/* Stock Mínimo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Stock Mínimo
+            </label>
+            <input
+              type="number"
+              name="stock_minimo"
+              value={formData.stock_minimo || 5}
+              onChange={handleChange}
+              min="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="5"
             />
           </div>
 
